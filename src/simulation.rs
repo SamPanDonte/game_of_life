@@ -40,6 +40,7 @@ impl Simulation {
     /// - when the command buffer creation fails.
     /// - when the command buffer building fails.
     /// - when the command buffer recording fails.
+    #[must_use]
     pub fn new(compute_queue: Arc<Queue>, output: Arc<GpuBuffer>, size: (u32, u32)) -> Self {
         let device = compute_queue.device().clone();
         let input = vulkan::create_gpu_buffer(&device, size, false);
@@ -128,6 +129,7 @@ impl Simulation {
     ///
     /// - when the command buffer submission fails.
     /// - when the command buffer copy fails.
+    #[must_use]
     pub fn step(&self, future: Box<dyn GpuFuture>) -> Box<dyn GpuFuture> {
         future
             .then_execute(self.compute_queue.clone(), self.copy_buffer.clone())

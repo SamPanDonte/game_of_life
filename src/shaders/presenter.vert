@@ -14,9 +14,13 @@ const uvec2 texcoords[4] = {
     uvec2(1, 1),
 };
 
+layout (push_constant) uniform Camera {
+    mat4 matrix;
+} camera;
+
 layout(location = 0) out vec2 position;
 
 void main() {
     position = texcoords[gl_VertexIndex];
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    gl_Position = camera.matrix * vec4(positions[gl_VertexIndex], 0.0, 1.0);
 }

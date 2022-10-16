@@ -16,8 +16,9 @@ use vulkano::{
     render_pass::{Framebuffer, FramebufferCreateInfo, Subpass},
 };
 use vulkano_util::renderer::VulkanoWindowRenderer;
+use winit::event::WindowEvent;
 
-use crate::{CommandBuffer, GpuBuffer};
+use crate::{Camera, CommandBuffer, GpuBuffer};
 
 /// This module contains compiled vertex and fragment shaders and shader data structures.
 mod shader {
@@ -31,6 +32,10 @@ mod shader {
                 ty: "fragment",
                 path: "src/shaders/presenter.frag",
             }
+        },
+        types_meta: {
+            use bytemuck::{Pod, Zeroable};
+            #[derive(Clone, Copy, Pod, Zeroable)]
         }
     }
 }
@@ -38,6 +43,7 @@ mod shader {
 /// This struct represents a pipeline that can be used to
 /// present the game of life.
 pub struct Presenter {
+    camera: Camera,
     pipeline: Arc<GraphicsPipeline>,
     descriptor: Arc<PersistentDescriptorSet>,
 }
@@ -54,6 +60,7 @@ impl Presenter {
     /// - when the descriptor set creation fails.
     /// - when the pipeline creation fails.
     /// - when the pipeline layout creation fails.
+    #[must_use]
     pub fn new(renderer: &VulkanoWindowRenderer, buffer: Arc<GpuBuffer>, size: (u32, u32)) -> Self {
         let device = renderer.graphics_queue().device().clone();
 
@@ -61,7 +68,7 @@ impl Presenter {
             device.clone(),
             attachments: {
                 color: {
-                    load: DontCare,
+                    load: Clear,
                     store: Store,
                     format: renderer.swapchain_format(),
                     samples: 1,
@@ -104,9 +111,15 @@ impl Presenter {
                 .expect("Cannot create descriptor set");
 
         Self {
+            camera: Camera::new(size, renderer.window().inner_size()),
             pipeline,
             descriptor,
         }
+    }
+
+    /// Updates the camera.
+    pub fn update(&mut self, event: &WindowEvent) {
+        self.camera.update(event);
     }
 
     /// Creates a new [`PrimaryAutoCommandBuffer`] that can be used to
@@ -121,6 +134,7 @@ impl Presenter {
     /// - when the render pass begin fails.
     /// - when the command buffer execution fails.
     /// - when the render pass end fails.
+    #[must_use]
     pub fn draw(&self, renderer: &VulkanoWindowRenderer) -> CommandBuffer {
         let render_pass = match self.pipeline.render_pass() {
             PipelineRenderPassType::BeginRenderPass(value) => value.render_pass(),
@@ -146,7 +160,7 @@ impl Presenter {
         builder
             .begin_render_pass(
                 RenderPassBeginInfo {
-                    clear_values: vec![Some([1.0, 1.0, 1.0, 1.0].into())],
+                    clear_values: vec![Some([0.5, 0.5, 0.5, 0.5].into())],
                     ..RenderPassBeginInfo::framebuffer(framebuffer)
                 },
                 SubpassContents::Inline,
@@ -159,6 +173,13 @@ impl Presenter {
                     dimensions: renderer.surface().window().inner_size().into(),
                     depth_range: 0.0..1.0,
                 }],
+            )
+            .push_constants(
+                self.pipeline.layout().clone(),
+                0,
+                shader::ty::Camera {
+                    matrix: self.camera.matrix().to_cols_array_2d(),
+                },
             )
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_descriptor_sets(

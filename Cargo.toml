@@ -12,6 +12,7 @@ publish = false
 bytemuck = "1.12"
 clap = { version = "4.0", features = ["derive"] }
 egui_winit_vulkano = "0.20"
+glam = "0.21"
 log = "0.4"
 rand = "0.8"
 vulkano = "0.31"

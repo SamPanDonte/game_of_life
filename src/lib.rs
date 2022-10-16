@@ -1,20 +1,21 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::unwrap_used)]
+mod camera;
 mod config;
 mod controller;
 mod presenter;
 mod simulation;
 pub mod vulkan;
 
-use std::time::Instant;
-
+pub use camera::*;
 pub use config::*;
 pub use controller::*;
+pub use presenter::*;
+pub use simulation::*;
 
-use presenter::Presenter;
-use rand::Rng;
-use simulation::Simulation;
+use std::time::Instant;
+
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, DeviceLocalBuffer},
     command_buffer::{
@@ -65,10 +66,6 @@ impl GameOfLife {
         let buffer = vulkan::create_gpu_buffer(context.device(), config.size(), true);
         let simulation = Simulation::new(renderer.compute_queue(), buffer.clone(), config.size());
         let presenter = Presenter::new(&renderer, buffer.clone(), config.size());
-
-        let mut statwe = [32.0, 3213.0];
-
-        rand::thread_rng().fill(&mut statwe);
 
         let tmp_buffer = CpuAccessibleBuffer::from_iter(
             context.device().clone(),
@@ -125,6 +122,7 @@ impl GameOfLife {
     /// - when vulkan fails to acquire any of frames.
     pub fn run(mut self) -> ! {
         let mut timer = Instant::now();
+        let mut minimized = false;
 
         self.event_loop.run(move |event, _, flow| match event {
             Event::WindowEvent {
@@ -132,9 +130,24 @@ impl GameOfLife {
                 ..
             } => flow.set_exit(),
             Event::WindowEvent { event, .. } => {
-                self.controller.update(&event);
+                if self.controller.update(&event) {
+                    return;
+                }
+                self.presenter.update(&event);
+                if let WindowEvent::Resized(size) = event {
+                    if size.height == 0 || size.width == 0 {
+                        flow.set_wait();
+                        minimized = true;
+                    } else {
+                        flow.set_poll();
+                        minimized = false;
+                    }
+                }
             }
             Event::MainEventsCleared => {
+                if minimized {
+                    return;
+                }
                 let mut future = match self.renderer.acquire() {
                     Ok(future) => future,
                     Err(_) => return,
@@ -155,7 +168,6 @@ impl GameOfLife {
                     timer = now;
                     future = self.simulation.step(future);
                 }
-
                 let x = self.presenter.draw(&self.renderer);
 
                 future = future
