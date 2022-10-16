@@ -1,0 +1,54 @@
+#version 460 core
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) writeonly buffer OutputData {
+    uint data[];
+} outputData;
+
+layout(set = 0, binding = 1) readonly buffer InputData {
+    uint data[];
+} inputData;
+
+layout(constant_id = 0) const uint width = 1024;
+layout(constant_id = 1) const uint height = 1024;
+
+void main() {
+    if (gl_GlobalInvocationID.x >= width || gl_GlobalInvocationID.y >= height) {
+        return;
+    }
+
+    uint sum = 0;
+    
+    if (gl_GlobalInvocationID.x > 0) {
+        sum += inputData.data[gl_GlobalInvocationID.x - 1 + gl_GlobalInvocationID.y * width];
+        if (gl_GlobalInvocationID.y > 0) {
+            sum += inputData.data[gl_GlobalInvocationID.x - 1 + (gl_GlobalInvocationID.y - 1) * width];
+        }
+        if (gl_GlobalInvocationID.y < height - 1) {
+            sum += inputData.data[gl_GlobalInvocationID.x - 1 + (gl_GlobalInvocationID.y + 1) * width];
+        }
+    }
+    if (gl_GlobalInvocationID.x < width - 1) {
+        sum += inputData.data[gl_GlobalInvocationID.x + 1 + gl_GlobalInvocationID.y * width];
+        if (gl_GlobalInvocationID.y > 0) {
+            sum += inputData.data[gl_GlobalInvocationID.x + 1 + (gl_GlobalInvocationID.y - 1) * width];
+        }
+        if (gl_GlobalInvocationID.y < height - 1) {
+            sum += inputData.data[gl_GlobalInvocationID.x + 1 + (gl_GlobalInvocationID.y + 1) * width];
+        }
+    }
+    if (gl_GlobalInvocationID.y > 0) {
+        sum += inputData.data[gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y - 1) * width];
+    }
+    if (gl_GlobalInvocationID.y < height - 1) {
+        sum += inputData.data[gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y + 1) * width];
+    }
+    
+    uint current_index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * width;
+    if ((inputData.data[current_index] == 1 && (sum == 2 || sum == 3)) || (inputData.data[current_index] == 0 && sum == 3)) {
+        outputData.data[current_index] = 1;
+    } else {
+        outputData.data[current_index] = 0;
+    }
+}

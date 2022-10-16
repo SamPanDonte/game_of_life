@@ -1,0 +1,177 @@
+use std::sync::Arc;
+
+use vulkano::{
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents,
+    },
+    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
+    pipeline::{
+        graphics::{
+            input_assembly::{InputAssemblyState, PrimitiveTopology},
+            render_pass::PipelineRenderPassType,
+            viewport::{Viewport, ViewportState},
+        },
+        GraphicsPipeline, Pipeline, PipelineBindPoint,
+    },
+    render_pass::{Framebuffer, FramebufferCreateInfo, Subpass},
+};
+use vulkano_util::renderer::VulkanoWindowRenderer;
+
+use crate::{CommandBuffer, GpuBuffer};
+
+/// This module contains compiled vertex and fragment shaders and shader data structures.
+mod shader {
+    vulkano_shaders::shader! {
+        shaders: {
+            vertex: {
+                ty: "vertex",
+                path: "src/shaders/presenter.vert",
+            },
+            fragment: {
+                ty: "fragment",
+                path: "src/shaders/presenter.frag",
+            }
+        }
+    }
+}
+
+/// This struct represents a pipeline that can be used to
+/// present the game of life.
+pub struct Presenter {
+    pipeline: Arc<GraphicsPipeline>,
+    descriptor: Arc<PersistentDescriptorSet>,
+}
+
+impl Presenter {
+    /// Creates a new [`Presenter`] pipeline.
+    ///
+    /// It creates new [`GraphicsPipeline`] and [`PersistentDescriptorSet`].
+    ///
+    /// # Panics
+    ///
+    /// - when the underlying Vulkano struct creations fail.
+    /// - when the shader entry point is not found.
+    /// - when the descriptor set creation fails.
+    /// - when the pipeline creation fails.
+    /// - when the pipeline layout creation fails.
+    pub fn new(renderer: &VulkanoWindowRenderer, buffer: Arc<GpuBuffer>, size: (u32, u32)) -> Self {
+        let device = renderer.graphics_queue().device().clone();
+
+        let render_pass = vulkano::single_pass_renderpass!(
+            device.clone(),
+            attachments: {
+                color: {
+                    load: DontCare,
+                    store: Store,
+                    format: renderer.swapchain_format(),
+                    samples: 1,
+                }
+            },
+            pass: {
+                color: [color],
+                depth_stencil: {}
+            }
+        )
+        .expect("Cannot create render pass");
+        let subpass = Subpass::from(render_pass, 0).expect("Cannot create subpass");
+
+        let vs = shader::load_vertex(device.clone()).expect("Cannot load vertex shader");
+        let fs = shader::load_fragment(device.clone()).expect("Cannot load fragment shader");
+        let pipeline = GraphicsPipeline::start()
+            .render_pass(subpass)
+            .input_assembly_state(
+                InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip),
+            )
+            .vertex_shader(vs.entry_point("main").expect("Cannot find entry point"), ())
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(
+                fs.entry_point("main").expect("Cannot find entry point"),
+                shader::FragmentSpecializationConstants {
+                    width: size.0,
+                    height: size.1,
+                },
+            )
+            .build(device)
+            .expect("Cannot create graphics pipeline");
+
+        let layout = pipeline
+            .layout()
+            .set_layouts()
+            .get(0)
+            .expect("Cannot get descriptor set layout");
+        let descriptor =
+            PersistentDescriptorSet::new(layout.clone(), [WriteDescriptorSet::buffer(0, buffer)])
+                .expect("Cannot create descriptor set");
+
+        Self {
+            pipeline,
+            descriptor,
+        }
+    }
+
+    /// Creates a new [`PrimaryAutoCommandBuffer`] that can be used to
+    /// present the game of life.
+    ///
+    /// # Panics
+    ///
+    /// - when the command buffer creation fails.
+    /// - when the framebuffer creation fails.
+    /// - when the command buffer recording fails.
+    /// - when the command buffer builder creation fails.
+    /// - when the render pass begin fails.
+    /// - when the command buffer execution fails.
+    /// - when the render pass end fails.
+    pub fn draw(&self, renderer: &VulkanoWindowRenderer) -> CommandBuffer {
+        let render_pass = match self.pipeline.render_pass() {
+            PipelineRenderPassType::BeginRenderPass(value) => value.render_pass(),
+            PipelineRenderPassType::BeginRendering(_) => unreachable!(),
+        };
+
+        let framebuffer = Framebuffer::new(
+            render_pass.clone(),
+            FramebufferCreateInfo {
+                attachments: vec![renderer.swapchain_image_view()],
+                ..Default::default()
+            },
+        )
+        .expect("Failed to create framebuffer");
+
+        let mut builder = AutoCommandBufferBuilder::primary(
+            self.pipeline.device().clone(),
+            renderer.graphics_queue().queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        )
+        .expect("Failed to create command buffer builder");
+
+        builder
+            .begin_render_pass(
+                RenderPassBeginInfo {
+                    clear_values: vec![Some([1.0, 1.0, 1.0, 1.0].into())],
+                    ..RenderPassBeginInfo::framebuffer(framebuffer)
+                },
+                SubpassContents::Inline,
+            )
+            .expect("Failed to begin render pass")
+            .set_viewport(
+                0,
+                [Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: renderer.surface().window().inner_size().into(),
+                    depth_range: 0.0..1.0,
+                }],
+            )
+            .bind_pipeline_graphics(self.pipeline.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                self.pipeline.layout().clone(),
+                0,
+                self.descriptor.clone(),
+            )
+            .draw(4, 1, 0, 0)
+            .expect("Failed to draw")
+            .end_render_pass()
+            .expect("Failed to end render pass");
+
+        builder.build().expect("Failed to build command buffer")
+    }
+}

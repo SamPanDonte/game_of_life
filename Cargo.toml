@@ -1,0 +1,25 @@
+[package]
+name = "game_of_life"
+version = "0.1.0"
+authors = ["Bartosz Wawrzyniak <bartosz.wawrzyniak.2000@gmail.com>"]
+edition = "2021"
+rust-version = "1.64"
+description = "Conway's Game of Life performed using Vulkan API and Rust"
+license = "TODO: Add license"
+publish = false
+
+[dependencies]
+bytemuck = "1.12"
+clap = { version = "4.0", features = ["derive"] }
+egui_winit_vulkano = "0.20"
+log = "0.4"
+rand = "0.8"
+vulkano = "0.31"
+vulkano-util = "0.31"
+vulkano-shaders = "0.31"
+winit = "0.27"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
