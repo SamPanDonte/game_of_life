@@ -3,7 +3,12 @@ use std::{collections::VecDeque, sync::Arc, time::Instant};
 use egui_winit_vulkano::{egui, Gui};
 use vulkano::{image::ImageViewAbstract, sync::GpuFuture};
 use vulkano_util::renderer::VulkanoWindowRenderer;
-use winit::{event::WindowEvent, event_loop::EventLoop};
+use winit::{
+    event::WindowEvent,
+    event_loop::{EventLoop, EventLoopProxy},
+};
+
+use crate::Message;
 
 /// This struct represents controls menu.
 pub struct Controller {
@@ -12,12 +17,13 @@ pub struct Controller {
     speed: u32,
     max_speed: u32,
     pub fps_counter: VecDeque<Instant>,
+    event_loop: EventLoopProxy<Message>,
 }
 
 impl Controller {
     /// Create [`Controller`] instance.
     #[inline]
-    pub fn new<T>(renderer: &VulkanoWindowRenderer, event_loop: &EventLoop<T>) -> Self {
+    pub fn new(renderer: &VulkanoWindowRenderer, event_loop: &EventLoop<Message>) -> Self {
         let gui = Gui::new(
             event_loop,
             renderer.surface(),
@@ -39,6 +45,7 @@ impl Controller {
             speed: 60,
             max_speed,
             fps_counter: VecDeque::new(),
+            event_loop: event_loop.create_proxy(),
         }
     }
 
@@ -63,6 +70,13 @@ impl Controller {
                     egui::Slider::new(&mut self.speed, 0..=self.max_speed).text("Simulation speed"),
                 );
                 ui.checkbox(&mut self.grid, "Show grid");
+                ui.horizontal_top(|ui| {
+                    if ui.button("Randomize").clicked() {
+                        self.event_loop
+                            .send_event(Message::Randomize)
+                            .expect("Cannot send event");
+                    }
+                });
             });
         });
         self.gui.draw_on_image(future, image)

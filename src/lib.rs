@@ -5,6 +5,7 @@ mod camera;
 mod config;
 mod controller;
 mod presenter;
+mod randomizer;
 mod simulation;
 pub mod vulkan;
 
@@ -12,32 +13,35 @@ pub use camera::*;
 pub use config::*;
 pub use controller::*;
 pub use presenter::*;
+pub use randomizer::*;
 pub use simulation::*;
 
 use std::time::Instant;
 
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, DeviceLocalBuffer},
-    command_buffer::{
-        pool::standard::StandardCommandPoolAlloc, AutoCommandBufferBuilder, CommandBufferUsage,
-        CopyBufferInfo, PrimaryAutoCommandBuffer,
-    },
+    buffer::DeviceLocalBuffer,
+    command_buffer::{pool::standard::StandardCommandPoolAlloc, PrimaryAutoCommandBuffer},
     memory::pool::{PotentialDedicatedAllocation, StandardMemoryPoolAlloc},
-    sync::{self, GpuFuture},
+    sync::GpuFuture,
 };
 use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::EventLoop,
+    event_loop::{EventLoop, EventLoopBuilder},
 };
 
 type GpuBuffer = DeviceLocalBuffer<[u32], PotentialDedicatedAllocation<StandardMemoryPoolAlloc>>;
 type CommandBuffer = PrimaryAutoCommandBuffer<StandardCommandPoolAlloc>;
 
+#[derive(Debug)]
+pub enum Message {
+    Randomize,
+}
+
 /// This struct represents the game of life.
 /// It contains the event loop, renderer, simulationm, controller and the presenter.
 pub struct GameOfLife {
-    event_loop: EventLoop<()>,
+    event_loop: EventLoop<Message>,
     renderer: VulkanoWindowRenderer,
     simulation: Simulation,
     presenter: Presenter,
@@ -60,47 +64,12 @@ impl GameOfLife {
     #[must_use]
     pub fn new(config: &Config) -> Self {
         let context = vulkan::vulkano_context();
-        let event_loop = EventLoop::new();
+        let event_loop = EventLoopBuilder::<Message>::with_user_event().build();
         let renderer = vulkan::vulkano_renderer(&context, &event_loop);
         let controller = Controller::new(&renderer, &event_loop);
         let buffer = vulkan::create_gpu_buffer(context.device(), config.size(), true);
         let simulation = Simulation::new(renderer.compute_queue(), buffer.clone(), config.size());
-        let presenter = Presenter::new(&renderer, buffer.clone(), config.size());
-
-        let tmp_buffer = CpuAccessibleBuffer::from_iter(
-            context.device().clone(),
-            BufferUsage {
-                storage_buffer: true,
-                transfer_src: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            (0..(config.size().0 * config.size().1) as u32)
-                .into_iter()
-                .map(|_| rand::random::<u32>() % 2),
-        )
-        .expect("failed to create buffer");
-
-        let mut builder = AutoCommandBufferBuilder::primary(
-            context.device().clone(),
-            renderer.compute_queue().queue_family_index(),
-            CommandBufferUsage::OneTimeSubmit,
-        )
-        .expect("failed to create command buffer");
-
-        builder
-            .copy_buffer(CopyBufferInfo::buffers(tmp_buffer, buffer))
-            .expect("failed to copy buffer");
-
-        let command_buffer = builder.build().expect("failed to build command buffer");
-
-        sync::now(context.device().clone())
-            .then_execute(renderer.compute_queue(), command_buffer)
-            .expect("failed to execute command buffer")
-            .then_signal_fence_and_flush()
-            .expect("failed to execute command buffer")
-            .wait(None)
-            .expect("failed to wait for command buffer");
+        let presenter = Presenter::new(&renderer, buffer, config.size());
 
         Self {
             event_loop,
@@ -144,6 +113,14 @@ impl GameOfLife {
                     }
                 }
             }
+            Event::UserEvent(Message::Randomize) => {
+                self.simulation
+                    .randomize()
+                    .then_signal_fence_and_flush()
+                    .expect("failed to execute command buffer")
+                    .wait(None)
+                    .expect("failed to wait for command buffer");
+            }
             Event::MainEventsCleared => {
                 if minimized {
                     return;
@@ -157,7 +134,7 @@ impl GameOfLife {
                 self.controller.fps_counter.push_back(now);
 
                 while let Some(x) = self.controller.fps_counter.pop_front() {
-                    if now - x < std::time::Duration::from_millis(1000) {
+                    if (now - x).as_millis() < 1000 {
                         self.controller.fps_counter.push_front(x);
                         break;
                     }

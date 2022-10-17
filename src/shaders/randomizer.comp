@@ -1,0 +1,25 @@
+#version 460 core
+
+// Gold noise based on https://www.shadertoy.com/view/4dS3zN
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) writeonly buffer OutputData {
+    uint data[];
+} outputData;
+
+layout(constant_id = 0) const uint width = 1024;
+layout(constant_id = 1) const uint height = 1024;
+
+const float PHI = 1.61803398874989484820459; // Φ = Golden Ratio
+
+layout(push_constant) uniform PushConstants {
+    float seed;
+} pushConstants;
+
+void main() {
+    vec2 xy = vec2(gl_GlobalInvocationID.xy);
+    float seed = fract(pushConstants.seed) + 0.1;
+    float value = fract(tan(distance(xy * PHI, xy) * seed) * xy.x);
+    outputData.data[gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * width] = value > 0.5 ? 1 : 0;
+}

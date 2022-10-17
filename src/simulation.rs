@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo},
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo, PrimaryCommandBuffer,
+    },
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     device::Queue,
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
-    sync::{self, GpuFuture},
+    sync::GpuFuture,
 };
 
-use crate::{vulkan, CommandBuffer, GpuBuffer};
+use crate::{vulkan, CommandBuffer, GpuBuffer, Randomizer};
 
 /// This module contains compiled compute shader and shader data structures.
 mod shader {
@@ -21,6 +23,7 @@ mod shader {
 /// This struct represents a pipeline that can be used to
 /// compute the next generation of the game of life.
 pub struct Simulation {
+    randomizer: Randomizer,
     compute_queue: Arc<Queue>,
     main_buffer: Arc<CommandBuffer>,
     copy_buffer: Arc<CommandBuffer>,
@@ -109,12 +112,13 @@ impl Simulation {
         .expect("Cannot create command buffer builder");
 
         builder
-            .copy_buffer(CopyBufferInfo::buffers(output, input))
+            .copy_buffer(CopyBufferInfo::buffers(output.clone(), input))
             .expect("Cannot copy buffer");
 
         let copy_buffer = Arc::new(builder.build().expect("Cannot build command buffer"));
 
         Self {
+            randomizer: Randomizer::new(compute_queue.clone(), output, size),
             compute_queue,
             main_buffer,
             copy_buffer,
@@ -138,11 +142,19 @@ impl Simulation {
             .expect("Cannot flush command buffer")
             .wait(None)
             .expect("Cannot wait for command buffer");
-        sync::now(self.compute_queue.device().clone())
-            .then_execute(self.compute_queue.clone(), self.main_buffer.clone())
+        self.main_buffer
+            .clone()
+            .execute(self.compute_queue.clone())
             .expect("Cannot execute command buffer")
             .then_signal_semaphore_and_flush()
             .expect("Cannot flush command buffer")
             .boxed()
+    }
+
+    /// Runs randomizer to fill the buffer with random values.
+    /// Returns a new [`GpuFuture`] that can be used to wait for the randomizer to finish.
+    #[must_use]
+    pub fn randomize(&self) -> Box<dyn GpuFuture> {
+        self.randomizer.run()
     }
 }
