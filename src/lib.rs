@@ -35,7 +35,7 @@ type CommandBuffer = PrimaryAutoCommandBuffer<StandardCommandPoolAlloc>;
 
 #[derive(Debug)]
 pub enum Message {
-    Randomize,
+    Randomize, Clear
 }
 
 /// This struct represents the game of life.
@@ -116,6 +116,14 @@ impl GameOfLife {
             Event::UserEvent(Message::Randomize) => {
                 self.simulation
                     .randomize()
+                    .then_signal_fence_and_flush()
+                    .expect("failed to execute command buffer")
+                    .wait(None)
+                    .expect("failed to wait for command buffer");
+            }
+            Event::UserEvent(Message::Clear) => {
+                self.simulation
+                    .clear()
                     .then_signal_fence_and_flush()
                     .expect("failed to execute command buffer")
                     .wait(None)

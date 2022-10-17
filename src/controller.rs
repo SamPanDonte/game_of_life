@@ -76,6 +76,11 @@ impl Controller {
                             .send_event(Message::Randomize)
                             .expect("Cannot send event");
                     }
+                    if ui.button("Clear").clicked() {
+                        self.event_loop
+                            .send_event(Message::Clear)
+                            .expect("Cannot send event");
+                    }
                 });
             });
         });
