@@ -73,7 +73,7 @@ impl Camera {
                         self.scale += delta.y.signum() as f32 * SCALE_FACTOR * self.scale;
                     }
                 }
-                self.scale = self.scale.clamp(0.5, 10.0);
+                self.scale = self.scale.clamp(0.5, 1000.0); // TODO: scale max scaling with game size
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {

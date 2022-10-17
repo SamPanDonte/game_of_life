@@ -168,7 +168,7 @@ impl GameOfLife {
                     timer = now;
                     future = self.simulation.step(future);
                 }
-                let x = self.presenter.draw(&self.renderer);
+                let x = self.presenter.draw(&self.renderer, self.controller.grid());
 
                 future = future
                     .then_execute(self.renderer.graphics_queue(), x)

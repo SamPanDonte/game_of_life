@@ -8,6 +8,7 @@ use winit::{event::WindowEvent, event_loop::EventLoop};
 /// This struct represents controls menu.
 pub struct Controller {
     gui: Gui,
+    grid: bool,
     speed: u32,
     max_speed: u32,
     pub fps_counter: VecDeque<Instant>,
@@ -34,6 +35,7 @@ impl Controller {
 
         Self {
             gui,
+            grid: false,
             speed: 60,
             max_speed,
             fps_counter: VecDeque::new(),
@@ -60,6 +62,7 @@ impl Controller {
                 ui.add(
                     egui::Slider::new(&mut self.speed, 0..=self.max_speed).text("Simulation speed"),
                 );
+                ui.checkbox(&mut self.grid, "Show grid");
             });
         });
         self.gui.draw_on_image(future, image)
@@ -68,5 +71,10 @@ impl Controller {
     /// Returns the speed of the simulation.
     pub fn speed(&self) -> u128 {
         self.speed.into()
+    }
+
+    /// Returns whether the grid should be drawn.
+    pub fn grid(&self) -> bool {
+        self.grid
     }
 }

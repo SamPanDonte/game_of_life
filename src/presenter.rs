@@ -135,7 +135,7 @@ impl Presenter {
     /// - when the command buffer execution fails.
     /// - when the render pass end fails.
     #[must_use]
-    pub fn draw(&self, renderer: &VulkanoWindowRenderer) -> CommandBuffer {
+    pub fn draw(&self, renderer: &VulkanoWindowRenderer, draw_grid: bool) -> CommandBuffer {
         let render_pass = match self.pipeline.render_pass() {
             PipelineRenderPassType::BeginRenderPass(value) => value.render_pass(),
             PipelineRenderPassType::BeginRendering(_) => unreachable!(),
@@ -179,6 +179,7 @@ impl Presenter {
                 0,
                 shader::ty::Camera {
                     matrix: self.camera.matrix().to_cols_array_2d(),
+                    drawGrid: draw_grid.into(),
                 },
             )
             .bind_pipeline_graphics(self.pipeline.clone())

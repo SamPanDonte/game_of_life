@@ -16,6 +16,7 @@ const uvec2 texcoords[4] = {
 
 layout (push_constant) uniform Camera {
     mat4 matrix;
+    uint drawGrid;
 } camera;
 
 layout(location = 0) out vec2 position;
