@@ -26,7 +26,7 @@ use vulkano::{
 };
 use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event, WindowEvent, MouseButton, ElementState},
     event_loop::{EventLoop, EventLoopBuilder},
 };
 
@@ -35,7 +35,8 @@ type CommandBuffer = PrimaryAutoCommandBuffer<StandardCommandPoolAlloc>;
 
 #[derive(Debug)]
 pub enum Message {
-    Randomize, Clear
+    Randomize,
+    Clear,
 }
 
 /// This struct represents the game of life.
@@ -92,6 +93,7 @@ impl GameOfLife {
     pub fn run(mut self) -> ! {
         let mut timer = Instant::now();
         let mut minimized = false;
+        let mut flip = false;
 
         self.event_loop.run(move |event, _, flow| match event {
             Event::WindowEvent {
@@ -110,6 +112,11 @@ impl GameOfLife {
                     } else {
                         flow.set_poll();
                         minimized = false;
+                    }
+                }
+                if let WindowEvent::MouseInput { state, button, .. } = event {
+                    if MouseButton::Right == button && state == ElementState::Pressed {
+                        flip = true;
                     }
                 }
             }
@@ -153,7 +160,9 @@ impl GameOfLife {
                     timer = now;
                     future = self.simulation.step(future);
                 }
-                let x = self.presenter.draw(&self.renderer, self.controller.grid());
+                let x = self
+                    .presenter
+                    .draw(&self.renderer, self.controller.grid(), flip);
 
                 future = future
                     .then_execute(self.renderer.graphics_queue(), x)
@@ -165,6 +174,7 @@ impl GameOfLife {
                     .draw(future, self.renderer.swapchain_image_view());
 
                 self.renderer.present(future, true);
+                flip = false;
             }
             _ => (),
         });

@@ -12,6 +12,8 @@ layout(constant_id = 1) const uint height = 1024;
 layout (push_constant) uniform Camera {
     mat4 matrix;
     uint drawGrid;
+    uint flip;
+    uvec2 position;
 } camera;
 
 layout(location = 0) out vec4 color;

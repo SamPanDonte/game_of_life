@@ -13,6 +13,7 @@ pub struct Camera {
     moving: bool,
     game_ratio: f64,
     translation: Vec3,
+    game_size: (u32, u32),
     screen_size: (f64, f64),
     cursor_pos: PhysicalPosition<f64>,
 }
@@ -34,6 +35,7 @@ impl Camera {
             moving: false,
             game_ratio,
             translation: Vec3::ZERO,
+            game_size,
             screen_size,
             cursor_pos: PhysicalPosition::new(0.0, 0.0),
         }
@@ -89,5 +91,28 @@ impl Camera {
     pub fn matrix(&self) -> Mat4 {
         Mat4::from_scale(Vec3::new(self.scale, self.scale / self.ratio, 1.0))
             * Mat4::from_translation(self.translation)
+    }
+
+    /// Calculates the position of the mouse in the game coordinates.
+    #[must_use]
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn cursor_game_postion(&self) -> [u32; 2] {
+        let mut pos_x = self.cursor_pos.x - self.screen_size.0 / 2.0;
+        pos_x /= self.screen_size.0 * f64::from(self.scale);
+        let mut pos_y = self.cursor_pos.y - self.screen_size.1 / 2.0;
+        pos_y /= self.screen_size.1 * f64::from(self.scale);
+        pos_y *= f64::from(self.ratio);
+
+        pos_x += f64::from(self.translation.x) / -2.0;
+        pos_y += f64::from(self.translation.y) / -2.0;
+
+        pos_x *= f64::from(self.game_size.0);
+        pos_y *= f64::from(self.game_size.1);
+
+        pos_x += f64::from(self.game_size.0) / 2.0;
+        pos_y += f64::from(self.game_size.1) / 2.0;
+
+        [pos_x as u32, pos_y as u32]
     }
 }

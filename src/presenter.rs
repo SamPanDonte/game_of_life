@@ -89,7 +89,13 @@ impl Presenter {
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip),
             )
-            .vertex_shader(vs.entry_point("main").expect("Cannot find entry point"), ())
+            .vertex_shader(
+                vs.entry_point("main").expect("Cannot find entry point"),
+                shader::VertexSpecializationConstants {
+                    width: size.0,
+                    height: size.1,
+                },
+            )
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
             .fragment_shader(
                 fs.entry_point("main").expect("Cannot find entry point"),
@@ -135,7 +141,7 @@ impl Presenter {
     /// - when the command buffer execution fails.
     /// - when the render pass end fails.
     #[must_use]
-    pub fn draw(&self, renderer: &VulkanoWindowRenderer, draw_grid: bool) -> CommandBuffer {
+    pub fn draw(&self, renderer: &VulkanoWindowRenderer, draw_grid: bool, flip: bool) -> CommandBuffer {
         let render_pass = match self.pipeline.render_pass() {
             PipelineRenderPassType::BeginRenderPass(value) => value.render_pass(),
             PipelineRenderPassType::BeginRendering(_) => unreachable!(),
@@ -180,6 +186,8 @@ impl Presenter {
                 shader::ty::Camera {
                     matrix: self.camera.matrix().to_cols_array_2d(),
                     drawGrid: draw_grid.into(),
+                    flip: flip.into(),
+                    position: self.camera.cursor_game_postion(),
                 },
             )
             .bind_pipeline_graphics(self.pipeline.clone())
