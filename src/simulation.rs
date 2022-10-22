@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use vulkano::{
     command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo, PrimaryCommandBuffer,
+        AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo, FillBufferInfo,
+        PrimaryCommandBuffer,
     },
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     device::Queue,
@@ -19,10 +20,6 @@ mod shader {
             simulation: {
                 ty: "compute",
                 path: "src/shaders/simulation.comp",
-            },
-            clear: {
-                ty: "compute",
-                path: "src/shaders/clear.comp",
             },
         }
     }
@@ -74,7 +71,7 @@ impl Simulation {
         );
 
         let mut builder = AutoCommandBufferBuilder::primary(
-            device,
+            device.clone(),
             compute_queue.queue_family_index(),
             CommandBufferUsage::MultipleSubmit,
         )
@@ -86,7 +83,18 @@ impl Simulation {
 
         let copy_buffer = Arc::new(builder.build().expect("Cannot build command buffer"));
 
-        let clear_buffer = create_clear_buffer(&compute_queue, output.clone(), size, group_size);
+        let mut builder = AutoCommandBufferBuilder::primary(
+            device,
+            compute_queue.queue_family_index(),
+            CommandBufferUsage::MultipleSubmit,
+        )
+        .expect("Cannot create command buffer builder");
+
+        builder
+            .fill_buffer(FillBufferInfo::dst_buffer(output.clone()))
+            .expect("Cannot copy buffer");
+
+        let clear_buffer = Arc::new(builder.build().expect("Cannot build command buffer"));
 
         Self {
             randomizer: Randomizer::new(compute_queue.clone(), output, size),
@@ -196,67 +204,6 @@ fn create_simulation_buffer(
         device,
         queue.queue_family_index(),
         vulkano::command_buffer::CommandBufferUsage::MultipleSubmit,
-    )
-    .expect("Cannot create command buffer builder");
-
-    builder
-        .bind_descriptor_sets(
-            PipelineBindPoint::Compute,
-            pipeline.layout().clone(),
-            0,
-            descriptor,
-        )
-        .bind_pipeline_compute(pipeline)
-        .dispatch(group_size)
-        .expect("Cannot record command buffer");
-
-    Arc::new(builder.build().expect("Cannot build command buffer"))
-}
-
-/// Creates a new [`PrimaryCommandBuffer`] that can be used to fill the buffer with zeros.
-///
-/// # Panics
-///
-/// - when the command buffer creation fails.
-/// - when the command buffer building fails.
-/// - when the pipeline creation fails.
-#[inline]
-fn create_clear_buffer(
-    queue: &Queue,
-    output: Arc<GpuBuffer>,
-    size: (u32, u32),
-    group_size: [u32; 3],
-) -> Arc<CommandBuffer> {
-    let device = queue.device().clone();
-
-    let shader = shader::load_clear(device.clone()).expect("Cannot load compute shader");
-    let pipeline = ComputePipeline::new(
-        device.clone(),
-        shader.entry_point("main").expect("Cannot find entry point"),
-        &shader::ClearSpecializationConstants {
-            width: size.0,
-            height: size.1,
-        },
-        None,
-        |_| {},
-    )
-    .expect("Cannot create compute pipeline");
-
-    let descriptor = PersistentDescriptorSet::new(
-        pipeline
-            .layout()
-            .set_layouts()
-            .get(0)
-            .expect("Cannot get descriptor set layout")
-            .clone(),
-        [WriteDescriptorSet::buffer(0, output)],
-    )
-    .expect("Cannot create descriptor set");
-
-    let mut builder = AutoCommandBufferBuilder::primary(
-        device,
-        queue.queue_family_index(),
-        CommandBufferUsage::MultipleSubmit,
     )
     .expect("Cannot create command buffer builder");
 
