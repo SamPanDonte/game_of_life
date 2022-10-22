@@ -84,6 +84,7 @@ fn create_window<T>(event_loop: &EventLoop<T>) -> Window {
 ///
 /// - when the underlying Vulkano struct creations fail.
 #[inline]
+#[must_use]
 pub fn vulkano_renderer<T>(
     context: &VulkanoContext,
     event_loop: &EventLoop<T>,

@@ -23,6 +23,7 @@ pub struct Controller {
 impl Controller {
     /// Create [`Controller`] instance.
     #[inline]
+    #[must_use]
     pub fn new(renderer: &VulkanoWindowRenderer, event_loop: &EventLoop<Message>) -> Self {
         let gui = Gui::new(
             event_loop,
@@ -49,7 +50,7 @@ impl Controller {
         }
     }
 
-    /// Update equvalent of [`Gui`] update method.
+    /// Update equivalent of [`Gui`] update method.
     #[inline]
     pub fn update(&mut self, event: &WindowEvent) -> bool {
         self.gui.update(event)

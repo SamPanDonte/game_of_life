@@ -1,6 +1,6 @@
 #version 460 core
 
-// Gold noise based on https://www.shadertoy.com/view/4dS3zN
+// Gold noise based on https://www.shadertoy.com/view/ltB3zD
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 

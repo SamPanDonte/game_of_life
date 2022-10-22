@@ -97,7 +97,7 @@ impl Camera {
     #[must_use]
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_possible_truncation)]
-    pub fn cursor_game_postion(&self) -> [u32; 2] {
+    pub fn cursor_game_position(&self) -> [u32; 2] {
         let mut pos_x = self.cursor_pos.x - self.screen_size.0 / 2.0;
         pos_x /= self.screen_size.0 * f64::from(self.scale);
         let mut pos_y = self.cursor_pos.y - self.screen_size.1 / 2.0;

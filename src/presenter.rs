@@ -187,7 +187,7 @@ impl Presenter {
                     matrix: self.camera.matrix().to_cols_array_2d(),
                     drawGrid: draw_grid.into(),
                     flip: flip.into(),
-                    position: self.camera.cursor_game_postion(),
+                    position: self.camera.cursor_game_position(),
                 },
             )
             .bind_pipeline_graphics(self.pipeline.clone())

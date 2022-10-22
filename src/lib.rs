@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::unwrap_used)]
+#![warn(clippy::undocumented_unsafe_blocks)]
 mod camera;
 mod config;
 mod controller;
@@ -40,7 +41,7 @@ pub enum Message {
 }
 
 /// This struct represents the game of life.
-/// It contains the event loop, renderer, simulationm, controller and the presenter.
+/// It contains the event loop, renderer, simulation, controller and the presenter.
 pub struct GameOfLife {
     event_loop: EventLoop<Message>,
     renderer: VulkanoWindowRenderer,
