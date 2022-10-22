@@ -165,8 +165,8 @@ impl GameOfLife {
                     }
                 }
 
-                let speed = self.controller.speed();
-                if speed > 0 && (now - timer).as_millis() > 1000 / speed {
+                let duration = (now - timer).as_millis();
+                if !self.controller.pause() && duration > 1000 / self.controller.speed() {
                     timer = now;
                     future = self.simulation.step(future);
                 }

@@ -15,6 +15,7 @@ pub struct Controller {
     gui: Gui,
     grid: bool,
     speed: u32,
+    pause: bool,
     max_speed: u32,
     pub fps_counter: VecDeque<Instant>,
     event_loop: EventLoopProxy<Message>,
@@ -44,6 +45,7 @@ impl Controller {
             gui,
             grid: false,
             speed: 60,
+            pause: true,
             max_speed,
             fps_counter: VecDeque::new(),
             event_loop: event_loop.create_proxy(),
@@ -68,10 +70,13 @@ impl Controller {
             egui::containers::Window::new("Controls").show(&ctx, |ui| {
                 ui.label(format!("Frames per second: {}", self.fps_counter.len()));
                 ui.add(
-                    egui::Slider::new(&mut self.speed, 0..=self.max_speed).text("Simulation speed"),
+                    egui::Slider::new(&mut self.speed, 1..=self.max_speed).text("Simulation speed"),
                 );
                 ui.checkbox(&mut self.grid, "Show grid");
                 ui.horizontal_top(|ui| {
+                    if ui.button(play_text(self.pause)).clicked() {
+                        self.pause = !self.pause;
+                    }
                     if ui.button("Randomize").clicked() {
                         self.event_loop
                             .send_event(Message::Randomize)
@@ -96,5 +101,19 @@ impl Controller {
     /// Returns whether the grid should be drawn.
     pub fn grid(&self) -> bool {
         self.grid
+    }
+
+    /// Returns whether the simulation is paused.
+    pub fn pause(&self) -> bool {
+        self.pause
+    }
+}
+
+/// Return text that should be displayed on the pause button.
+fn play_text(pause: bool) -> &'static str {
+    if pause {
+        "Play"
+    } else {
+        "Pause"
     }
 }
