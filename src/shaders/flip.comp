@@ -1,0 +1,19 @@
+#version 460 core
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) buffer OutputData {
+    uint data[];
+} outputData;
+
+layout(constant_id = 0) const uint width = 1024;
+layout(constant_id = 1) const uint height = 1024;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 position;
+} pushConstants;
+
+void main() {
+    uint index = pushConstants.position.y * width + pushConstants.position.x;
+    outputData.data[index] = 1 - outputData.data[index];
+}

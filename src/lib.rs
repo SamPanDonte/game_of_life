@@ -5,6 +5,7 @@
 mod camera;
 mod config;
 mod controller;
+mod flipper;
 mod presenter;
 mod randomizer;
 mod simulation;
@@ -13,6 +14,7 @@ pub mod vulkan;
 pub use camera::*;
 pub use config::*;
 pub use controller::*;
+pub use flipper::*;
 pub use presenter::*;
 pub use randomizer::*;
 pub use simulation::*;
@@ -27,7 +29,7 @@ use vulkano::{
 };
 use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::{
-    event::{Event, WindowEvent, MouseButton, ElementState},
+    event::{ElementState, Event, MouseButton, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder},
 };
 
@@ -48,6 +50,7 @@ pub struct GameOfLife {
     simulation: Simulation,
     presenter: Presenter,
     controller: Controller,
+    flipper: Flipper,
 }
 
 impl GameOfLife {
@@ -71,7 +74,8 @@ impl GameOfLife {
         let controller = Controller::new(&renderer, &event_loop);
         let buffer = vulkan::create_gpu_buffer(context.device(), config.size(), true);
         let simulation = Simulation::new(renderer.compute_queue(), buffer.clone(), config.size());
-        let presenter = Presenter::new(&renderer, buffer, config.size());
+        let presenter = Presenter::new(&renderer, buffer.clone(), config.size());
+        let flipper = Flipper::new(renderer.compute_queue(), buffer, config.size());
 
         Self {
             event_loop,
@@ -79,6 +83,7 @@ impl GameOfLife {
             simulation,
             presenter,
             controller,
+            flipper,
         }
     }
 
@@ -94,7 +99,6 @@ impl GameOfLife {
     pub fn run(mut self) -> ! {
         let mut timer = Instant::now();
         let mut minimized = false;
-        let mut flip = false;
 
         self.event_loop.run(move |event, _, flow| match event {
             Event::WindowEvent {
@@ -117,7 +121,12 @@ impl GameOfLife {
                 }
                 if let WindowEvent::MouseInput { state, button, .. } = event {
                     if MouseButton::Right == button && state == ElementState::Pressed {
-                        flip = true;
+                        self.flipper
+                            .flip(self.presenter.camera().cursor_game_position())
+                            .then_signal_fence_and_flush()
+                            .expect("Failed to flip")
+                            .wait(None)
+                            .expect("Failed to wait for flip");
                     }
                 }
             }
@@ -161,9 +170,7 @@ impl GameOfLife {
                     timer = now;
                     future = self.simulation.step(future);
                 }
-                let x = self
-                    .presenter
-                    .draw(&self.renderer, self.controller.grid(), flip);
+                let x = self.presenter.draw(&self.renderer, self.controller.grid());
 
                 future = future
                     .then_execute(self.renderer.graphics_queue(), x)
@@ -175,7 +182,6 @@ impl GameOfLife {
                     .draw(future, self.renderer.swapchain_image_view());
 
                 self.renderer.present(future, true);
-                flip = false;
             }
             _ => (),
         });

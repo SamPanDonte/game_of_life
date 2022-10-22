@@ -12,7 +12,6 @@ layout(constant_id = 1) const uint height = 1024;
 layout (push_constant) uniform Camera {
     mat4 matrix;
     uint drawGrid;
-    uint flip;
     uvec2 position;
 } camera;
 
@@ -21,9 +20,11 @@ layout(location = 0) out vec4 color;
 void main() {
     vec2 positionScaled = position * vec2(uvec2(width, height));
     uvec2 index = uvec2(positionScaled);
-    float value = inputData.data[index.x + index.y * width] == 1 ? 0.0 : 1.0;
-    if (camera.drawGrid == 1 && value == 1.0 && (fract(positionScaled.x) < 0.1 || fract(positionScaled.y) < 0.1 || fract(positionScaled.x) > 0.9 || fract(positionScaled.y) > 0.9)) {
-        value = 0.8;
+    float value = float(1 - inputData.data[index.x + index.y * width]);
+    if (camera.drawGrid == 1 && (fract(positionScaled.x) < 0.07 || fract(positionScaled.y) < 0.07 || fract(positionScaled.x) > 0.93 || fract(positionScaled.y) > 0.93)) {
+        value = 0.9;
+    } else if (index == camera.position) {
+        value = value * 0.33 + 0.33;
     }
     color = vec4(value);
 }

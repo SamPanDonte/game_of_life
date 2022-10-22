@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use vulkano::{
     buffer::{BufferUsage, DeviceLocalBuffer},
-    device::{Device, Features},
+    device::Device,
     instance::{InstanceCreateInfo, InstanceExtensions},
     Version,
 };
@@ -54,10 +54,6 @@ pub fn vulkano_context() -> VulkanoContext {
             #[cfg(target_os = "macos")]
             enumerate_portability: true,
             ..Default::default()
-        },
-        device_features: Features {
-            vertex_pipeline_stores_and_atomics: true,
-            ..Features::empty()
         },
         ..Default::default()
     })

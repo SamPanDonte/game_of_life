@@ -91,10 +91,7 @@ impl Presenter {
             )
             .vertex_shader(
                 vs.entry_point("main").expect("Cannot find entry point"),
-                shader::VertexSpecializationConstants {
-                    width: size.0,
-                    height: size.1,
-                },
+                (),
             )
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
             .fragment_shader(
@@ -141,7 +138,7 @@ impl Presenter {
     /// - when the command buffer execution fails.
     /// - when the render pass end fails.
     #[must_use]
-    pub fn draw(&self, renderer: &VulkanoWindowRenderer, draw_grid: bool, flip: bool) -> CommandBuffer {
+    pub fn draw(&self, renderer: &VulkanoWindowRenderer, draw_grid: bool) -> CommandBuffer {
         let render_pass = match self.pipeline.render_pass() {
             PipelineRenderPassType::BeginRenderPass(value) => value.render_pass(),
             PipelineRenderPassType::BeginRendering(_) => unreachable!(),
@@ -186,8 +183,8 @@ impl Presenter {
                 shader::ty::Camera {
                     matrix: self.camera.matrix().to_cols_array_2d(),
                     drawGrid: draw_grid.into(),
-                    flip: flip.into(),
                     position: self.camera.cursor_game_position(),
+                    _dummy0: [0; 4],
                 },
             )
             .bind_pipeline_graphics(self.pipeline.clone())
@@ -203,5 +200,12 @@ impl Presenter {
             .expect("Failed to end render pass");
 
         builder.build().expect("Failed to build command buffer")
+    }
+
+    /// Returns the camera.
+    #[inline]
+    #[must_use]
+    pub fn camera(&self) -> &Camera {
+        &self.camera
     }
 }
